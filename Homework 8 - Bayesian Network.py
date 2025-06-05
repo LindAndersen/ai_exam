@@ -31,9 +31,9 @@ P_HC_given_DT_FTL_EM = {
 
 # Evidence
 evidence = {
-    'V': 'true',       # Vibrations
-    'SMS': 'true',     # Slow Max Speed
-    'HC': 'false'      # High Consumption
+    'V': 'false',       # Vibrations
+    'SMS': 'false',     # Slow Max Speed
+    'HC': 'true'      # High Consumption
 }
 
 # Variable name map
