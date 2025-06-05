@@ -12,27 +12,30 @@ def main():
         [0.2, 0.6],  # from cold
     ])
 
+    # Transition probabilities to END state
+    end_probs = np.array([0.2, 0.2])  # from hot, cold
+
     # Emission matrix: rows = state, cols = observation (1-indexed)
     emissions = np.array([
-        [0.2, 0.5, 0.3],  # hot: P(1)=0.2, P(2)=0.4, P(3)=0.4
-        [0.4, 0.3, 0.3],  # cold: P(1)=0.5, P(2)=0.4, P(3)=0.1
+        [0.2, 0.5, 0.3],  # hot
+        [0.4, 0.3, 0.3],  # cold
     ])
 
     # Initial probabilities from start state
-    start_probs = np.array([0.6, 0.4])  # P(start → hot), P(start → cold)
+    start_probs = np.array([0.6, 0.4])  # Start → HOT, Start → COLD
 
     print("Observations:", ' '.join(map(str, obs_sequence)))
-    prob = compute_forward(start_probs, transitions, emissions, obs_sequence)
+
+    prob = compute_forward(start_probs, transitions, emissions, obs_sequence, end_probs)
     print("Observation Sequence Probability (Forward):", prob)
 
-    path = compute_viterbi_log(start_probs, transitions, emissions, obs_sequence, states)
+    path = compute_viterbi_log(start_probs, transitions, emissions, obs_sequence, end_probs, states)
     print("Most Likely State Sequence (Viterbi):", ' '.join(path))
 
 
-def compute_forward(start_probs, transitions, emissions, observations):
+def compute_forward(start_probs, transitions, emissions, observations, end_probs):
     n_states = transitions.shape[0]
     T = len(observations)
-
     forward = np.zeros((n_states, T))
 
     # Initialization
@@ -47,10 +50,12 @@ def compute_forward(start_probs, transitions, emissions, observations):
                 for sp in range(n_states)
             ) * emissions[s][observations[t] - 1]
 
-    return np.sum(forward[:, -1])
+    # Termination (account for transition to END)
+    prob = sum(forward[s][T - 1] * end_probs[s] for s in range(n_states))
+    return prob
 
 
-def compute_viterbi_log(start_probs, transitions, emissions, observations, state_names):
+def compute_viterbi_log(start_probs, transitions, emissions, observations, end_probs, state_names):
     n_states = transitions.shape[0]
     T = len(observations)
 
@@ -62,6 +67,7 @@ def compute_viterbi_log(start_probs, transitions, emissions, observations, state
     log_start = log(start_probs + 1e-12)
     log_trans = log(transitions + 1e-12)
     log_emit = log(emissions + 1e-12)
+    log_end = log(end_probs + 1e-12)
 
     # Initialization
     for s in range(n_states):
@@ -75,8 +81,11 @@ def compute_viterbi_log(start_probs, transitions, emissions, observations, state
             viterbi[s][t] = log_probs[best_prev] + log_emit[s][observations[t] - 1]
             backpointer[s][t] = best_prev
 
+    # Termination: Add transition to END state
+    final_probs = [viterbi[s][T - 1] + log_end[s] for s in range(n_states)]
+    last_state = np.argmax(final_probs)
+
     # Backtrace
-    last_state = np.argmax(viterbi[:, -1])
     path_indices = [last_state]
     for t in range(T - 1, 0, -1):
         last_state = backpointer[last_state][t]
